@@ -105,7 +105,7 @@ export class WalletsService {
         }
 
         // Verify amount matches?
-        // data.amount is in kobo. transaction.amount is in Naira (major).
+        // data.amount is in pesewas. transaction.amount is in Cedis (major).
         const amountPaid = data.amount / 100;
         if (amountPaid !== transaction.amount) {
           this.logger.error(

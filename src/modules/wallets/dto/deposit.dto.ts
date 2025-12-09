@@ -3,7 +3,7 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class DepositDto {
   @ApiProperty({
-    description: 'Amount to deposit in Naira',
+    description: 'Amount to deposit in Cedis',
     example: 5000,
     minimum: 100,
   })
