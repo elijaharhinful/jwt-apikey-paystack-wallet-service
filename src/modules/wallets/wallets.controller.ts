@@ -25,6 +25,7 @@ import type { RequestWithUser } from '../../modules/auth/interfaces/request-with
 import type { PaystackWebhookEvent } from '../paystack/interfaces/paystack-webhook-event.interface';
 import { TransactionHistoryResponse } from './interfaces/transaction-history-response.interface';
 import { CreateTransferDto } from './dto/create-transfer.dto';
+import { DepositDto } from './dto/deposit.dto';
 
 @Controller('wallet')
 @WalletDocs()
@@ -35,8 +36,8 @@ export class WalletsController {
   @UseGuards(CombinedAuthGuard, PermissionsGuard)
   @RequirePermissions('deposit')
   @DepositDocs()
-  deposit(@Req() req: RequestWithUser, @Body('amount') amount: number) {
-    return this.walletsService.deposit(req.user, amount);
+  deposit(@Req() req: RequestWithUser, @Body() body: DepositDto) {
+    return this.walletsService.deposit(req.user, body.amount);
   }
 
   @Post('paystack/webhook')

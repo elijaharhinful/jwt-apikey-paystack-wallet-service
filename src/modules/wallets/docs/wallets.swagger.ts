@@ -17,15 +17,13 @@ export function WalletDocs() {
   );
 }
 
+import { DepositDto } from '../dto/deposit.dto';
+import { CreateTransferDto } from '../dto/create-transfer.dto';
+
 export function DepositDocs() {
   return applyDecorators(
     ApiOperation({ summary: 'Deposit funds via Paystack' }),
-    ApiBody({
-      schema: {
-        type: 'object',
-        properties: { amount: { type: 'number', example: 5000 } },
-      },
-    }),
+    ApiBody({ type: DepositDto }),
     ApiResponse({
       status: 201,
       description: 'Paystack initialization data',
@@ -39,15 +37,7 @@ export function DepositDocs() {
 export function TransferDocs() {
   return applyDecorators(
     ApiOperation({ summary: 'Transfer funds to another wallet' }),
-    ApiBody({
-      schema: {
-        type: 'object',
-        properties: {
-          wallet_number: { type: 'string', description: 'Recipient Wallet ID' },
-          amount: { type: 'number', example: 1000 },
-        },
-      },
-    }),
+    ApiBody({ type: CreateTransferDto }),
     ApiResponse({
       status: 201,
       description: 'Transfer successful',

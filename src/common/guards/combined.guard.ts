@@ -6,6 +6,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { Request } from 'express';
 import { ApiKeysService } from '../../modules/api-keys/api-keys.service';
+import { RequestWithUser } from '../../modules/auth/interfaces/request-with-user.interface';
 
 @Injectable()
 export class CombinedAuthGuard extends AuthGuard('jwt') {
@@ -23,8 +24,7 @@ export class CombinedAuthGuard extends AuthGuard('jwt') {
       if (!user) {
         throw new UnauthorizedException('Invalid API Key');
       }
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      (request as any).user = user;
+      (request as RequestWithUser).user = user;
       return true;
     }
 

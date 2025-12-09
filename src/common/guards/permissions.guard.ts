@@ -5,6 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { RequestWithUser } from '../../modules/auth/interfaces/request-with-user.interface';
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
@@ -19,16 +20,14 @@ export class PermissionsGuard implements CanActivate {
       return true;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const { user } = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<RequestWithUser>();
+    const user = request.user;
     if (!user) return false;
 
     // Check if user has permissions property (API Key User)
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     if (user.permissions && Array.isArray(user.permissions)) {
       const hasPermission = requiredPermissions.every((perm) =>
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-        user.permissions.includes(perm),
+        user.permissions!.includes(perm),
       );
       if (!hasPermission) {
         throw new ForbiddenException('Insufficient API Key Permissions');

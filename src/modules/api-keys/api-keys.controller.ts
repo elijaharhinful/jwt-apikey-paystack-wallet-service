@@ -5,8 +5,12 @@ import {
   ApiKeyDocs,
   CreateApiKeyDocs,
   RolloverApiKeyDocs,
+  RevokeApiKeyDocs,
 } from './docs/api-key.swagger';
 import type { RequestWithUser } from '../auth/interfaces/request-with-user.interface';
+import { CreateApiKeyDto } from './dto/create-api-key.dto';
+import { RolloverApiKeyDto } from './dto/rollover-api-key.dto';
+import { RevokeApiKeyDto } from './dto/revoke-api-key.dto';
 
 @Controller('keys')
 @UseGuards(AuthGuard('jwt')) // Only logged-in users can manage keys
@@ -16,10 +20,7 @@ export class ApiKeysController {
 
   @Post('create')
   @CreateApiKeyDocs()
-  async createKey(
-    @Req() req: RequestWithUser,
-    @Body() body: { name: string; permissions: string[]; expiry: string },
-  ) {
+  async createKey(@Req() req: RequestWithUser, @Body() body: CreateApiKeyDto) {
     return this.apiKeysService.createApiKey(
       req.user,
       body.name,
@@ -32,7 +33,7 @@ export class ApiKeysController {
   @RolloverApiKeyDocs()
   async rolloverKey(
     @Req() req: RequestWithUser,
-    @Body() body: { expired_key_id: string; expiry: string },
+    @Body() body: RolloverApiKeyDto,
   ) {
     return this.apiKeysService.rolloverApiKey(
       req.user,
@@ -43,8 +44,8 @@ export class ApiKeysController {
 
   @Post('revoke')
   @UseGuards(AuthGuard('jwt'))
-  // TODO: Add RevokeDocs
-  async revokeKey(@Req() req: RequestWithUser, @Body('key_id') keyId: string) {
-    return this.apiKeysService.revokeApiKey(req.user, keyId);
+  @RevokeApiKeyDocs()
+  async revokeKey(@Req() req: RequestWithUser, @Body() body: RevokeApiKeyDto) {
+    return this.apiKeysService.revokeApiKey(req.user, body.key_id);
   }
 }

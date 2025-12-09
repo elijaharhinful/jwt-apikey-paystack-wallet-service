@@ -9,6 +9,7 @@ export default () => ({
   },
   auth: {
     jwtSecret: process.env.JWT_SECRET,
+    jwtExpiry: process.env.JWT_EXPIRY || '1d',
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,

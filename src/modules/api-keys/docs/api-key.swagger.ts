@@ -6,6 +6,9 @@ import {
   ApiBearerAuth,
   ApiBody,
 } from '@nestjs/swagger';
+import { CreateApiKeyDto } from '../dto/create-api-key.dto';
+import { RolloverApiKeyDto } from '../dto/rollover-api-key.dto';
+import { RevokeApiKeyDto } from '../dto/revoke-api-key.dto';
 
 export function ApiKeyDocs() {
   return applyDecorators(ApiTags('Api Keys'));
@@ -15,16 +18,7 @@ export function CreateApiKeyDocs() {
   return applyDecorators(
     ApiOperation({ summary: 'Create a new API Key' }),
     ApiBearerAuth('JWT'),
-    ApiBody({
-      schema: {
-        type: 'object',
-        properties: {
-          name: { type: 'string' },
-          permissions: { type: 'array', items: { type: 'string' } },
-          expiry: { type: 'string', example: '1D' },
-        },
-      },
-    }),
+    ApiBody({ type: CreateApiKeyDto }),
     ApiResponse({
       status: 201,
       description: 'API Key created',
@@ -43,15 +37,7 @@ export function RolloverApiKeyDocs() {
   return applyDecorators(
     ApiOperation({ summary: 'Rollover an expired API Key' }),
     ApiBearerAuth('JWT'),
-    ApiBody({
-      schema: {
-        type: 'object',
-        properties: {
-          expired_key_id: { type: 'string' },
-          expiry: { type: 'string', example: '1M' },
-        },
-      },
-    }),
+    ApiBody({ type: RolloverApiKeyDto }),
     ApiResponse({
       status: 201,
       description: 'New API Key created with same permissions',
@@ -62,6 +48,18 @@ export function RolloverApiKeyDocs() {
           expires_at: '2025-02-01T...',
         },
       },
+    }),
+  );
+}
+
+export function RevokeApiKeyDocs() {
+  return applyDecorators(
+    ApiOperation({ summary: 'Revoke an API Key' }),
+    ApiBearerAuth('JWT'),
+    ApiBody({ type: RevokeApiKeyDto }),
+    ApiResponse({
+      status: 200,
+      description: 'API Key revoked',
     }),
   );
 }
