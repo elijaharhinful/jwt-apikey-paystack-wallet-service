@@ -1,0 +1,265 @@
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+  Logger,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { DataSource, Repository } from 'typeorm';
+import { Wallet } from './entities/wallet.entity';
+import {
+  Transaction,
+  TransactionStatus,
+  TransactionType,
+} from './entities/transaction.entity';
+import { PaystackService } from '../paystack/paystack.service';
+import { User } from '../users/entities/user.entity';
+import { PaystackWebhookEvent } from '../paystack/interfaces/paystack-webhook-event.interface';
+import { WalletBalanceResponse } from './interfaces/wallet-balance-response.interface';
+import { DepositStatusResponse } from './interfaces/deposit-status-response.interface';
+import { TransactionHistoryResponse } from './interfaces/transaction-history-response.interface';
+
+@Injectable()
+export class WalletsService {
+  private readonly logger = new Logger(WalletsService.name);
+
+  constructor(
+    @InjectRepository(Wallet)
+    private readonly walletRepository: Repository<Wallet>,
+    @InjectRepository(Transaction)
+    private readonly transactionRepository: Repository<Transaction>,
+    private readonly paystackService: PaystackService,
+    private readonly dataSource: DataSource,
+  ) {}
+
+  async create(user: User): Promise<Wallet> {
+    const wallet = this.walletRepository.create({
+      user,
+      balance: 0,
+    });
+    return this.walletRepository.save(wallet);
+  }
+
+  async deposit(user: User, amount: number) {
+    const reference = `REF-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+    // Create PENDING transaction
+    // Need wallet first
+    let wallet = await this.walletRepository.findOne({
+      where: { user: { id: user.id } },
+    });
+    if (!wallet) wallet = await this.create(user); // Should exist from user creation
+
+    const transaction = this.transactionRepository.create({
+      wallet,
+      amount,
+      type: TransactionType.DEPOSIT,
+      status: TransactionStatus.PENDING,
+      reference,
+    });
+    await this.transactionRepository.save(transaction);
+
+    // Call Paystack
+    const paystackData = await this.paystackService.initializeTransaction(
+      user.email,
+      amount,
+      reference,
+    );
+
+    return paystackData;
+  }
+
+  async handleWebhook(body: PaystackWebhookEvent, signature: string) {
+    if (!this.paystackService.verifyWebhookSignature(signature, body)) {
+      throw new BadRequestException('Invalid signature');
+    }
+
+    const event = body.event;
+    const data = body.data;
+
+    if (event === 'charge.success') {
+      const reference = data.reference;
+
+      this.logger.log(`Processing valid webhook for ${reference}`);
+
+      // Transactional update
+      const queryRunner = this.dataSource.createQueryRunner();
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
+
+      try {
+        const transaction = await queryRunner.manager.findOne(Transaction, {
+          where: { reference },
+          relations: ['wallet'],
+        });
+
+        if (!transaction) {
+          this.logger.warn(`Transaction not found for ref ${reference}`);
+          return;
+        }
+
+        if (transaction.status === TransactionStatus.SUCCESS) {
+          this.logger.log(`Transaction ${reference} already processed`);
+          return;
+        }
+
+        // Verify amount matches?
+        // data.amount is in kobo. transaction.amount is in Naira (major).
+        const amountPaid = data.amount / 100;
+        if (amountPaid !== transaction.amount) {
+          this.logger.error(
+            `Amount mismatch: expected ${transaction.amount}, got ${amountPaid}`,
+          );
+
+          transaction.amount = amountPaid;
+        }
+
+        transaction.status = TransactionStatus.SUCCESS;
+        await queryRunner.manager.save(transaction);
+
+        // Credit Wallet
+        const wallet = transaction.wallet;
+        wallet.balance = Number(wallet.balance) + amountPaid;
+        const walletLocked = await queryRunner.manager.findOne(Wallet, {
+          where: { id: wallet.id },
+          lock: { mode: 'pessimistic_write' },
+        });
+
+        if (!walletLocked)
+          throw new InternalServerErrorException('Wallet lock failed');
+
+        walletLocked.balance = Number(walletLocked.balance) + amountPaid;
+        await queryRunner.manager.save(walletLocked);
+
+        await queryRunner.commitTransaction();
+        this.logger.log(`Wallet credited for ${reference}`);
+      } catch (err: unknown) {
+        await queryRunner.rollbackTransaction();
+        if (err instanceof Error) {
+          this.logger.error(`Webhook error: ${err.message}`);
+        } else {
+          this.logger.error(`Webhook error: Unknown error`);
+        }
+        throw err;
+      } finally {
+        await queryRunner.release();
+      }
+    }
+
+    return { status: true };
+  }
+
+  async transfer(senderUser: User, recipientWalletId: string, amount: number) {
+    if (amount <= 0) throw new BadRequestException('Invalid amount');
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // Prepare IDs
+      // We need sender wallet ID first.
+      const senderWalletSimple = await this.walletRepository.findOne({
+        where: { user: { id: senderUser.id } },
+      });
+      if (!senderWalletSimple)
+        throw new NotFoundException('Sender wallet not found');
+      const senderWalletId = senderWalletSimple.id;
+
+      if (senderWalletId === recipientWalletId)
+        throw new BadRequestException('Cannot transfer to self');
+
+      const firstId =
+        senderWalletId < recipientWalletId ? senderWalletId : recipientWalletId;
+      const secondId =
+        senderWalletId < recipientWalletId ? recipientWalletId : senderWalletId;
+
+      const wallets = await queryRunner.manager.find(Wallet, {
+        where: [{ id: firstId }, { id: secondId }],
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (wallets.length !== 2)
+        throw new NotFoundException('One or both wallets not found');
+
+      const senderLocked = wallets.find((w) => w.id === senderWalletId);
+      const recipientLocked = wallets.find((w) => w.id === recipientWalletId);
+
+      if (!senderLocked || !recipientLocked)
+        throw new NotFoundException('Wallet mismatch');
+
+      if (Number(senderLocked.balance) < amount) {
+        throw new BadRequestException('Insufficient balance');
+      }
+
+      // 3. Perform Transfer
+      senderLocked.balance = Number(senderLocked.balance) - amount;
+      recipientLocked.balance = Number(recipientLocked.balance) + amount;
+
+      await queryRunner.manager.save([senderLocked, recipientLocked]);
+
+      // 4. Record Transactions
+      // Sender Debit
+      const debitTx = queryRunner.manager.create(Transaction, {
+        wallet: senderLocked,
+        amount: amount,
+        type: TransactionType.TRANSFER,
+        status: TransactionStatus.SUCCESS,
+        reference: `TRF-${Date.now()}-${senderLocked.id}`,
+        metadata: { type: 'debit', receiver_wallet: recipientLocked.id },
+      });
+
+      // Receiver Credit
+      const creditTx = queryRunner.manager.create(Transaction, {
+        wallet: recipientLocked,
+        amount: amount,
+        type: TransactionType.TRANSFER, // or DEPOSIT? No, TRANSFER.
+        status: TransactionStatus.SUCCESS,
+        reference: `TRF-${Date.now()}-${senderLocked.id}-CREDIT`,
+        metadata: { type: 'credit', sender_wallet: senderLocked.id },
+      });
+
+      await queryRunner.manager.save([debitTx, creditTx]);
+
+      await queryRunner.commitTransaction();
+      return { status: 'success', message: 'Transfer completed' };
+    } catch (err: unknown) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async getBalance(user: User): Promise<WalletBalanceResponse> {
+    const wallet = await this.walletRepository.findOne({
+      where: { user: { id: user.id } },
+    });
+    if (!wallet) return { balance: 0 };
+    return { balance: wallet.balance };
+  }
+
+  async getTransactions(user: User): Promise<TransactionHistoryResponse[]> {
+    const wallet = await this.walletRepository.findOne({
+      where: { user: { id: user.id } },
+      relations: ['transactions'],
+    });
+    if (!wallet) return [];
+    return wallet.transactions.sort(
+      (a, b) => b.created_at.getTime() - a.created_at.getTime(),
+    );
+  }
+
+  async getDepositStatus(reference: string): Promise<DepositStatusResponse> {
+    const transaction = await this.transactionRepository.findOne({
+      where: { reference },
+    });
+    if (!transaction) throw new NotFoundException('Transaction not found');
+    return {
+      reference: transaction.reference,
+      status: transaction.status,
+      amount: transaction.amount,
+    };
+  }
+}
