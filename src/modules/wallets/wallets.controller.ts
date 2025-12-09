@@ -85,4 +85,9 @@ export class WalletsController {
   ): Promise<TransactionHistoryResponse[]> {
     return this.walletsService.getTransactions(req.user);
   }
+
+  @Get('payment-success')
+  paymentSuccess() {
+    return 'Payment successful! You can close this window.';
+  }
 }
