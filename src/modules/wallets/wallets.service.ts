@@ -225,6 +225,17 @@ export class WalletsService {
     recipientWalletNumber: string,
     amount: number,
   ) {
+    if (typeof amount !== 'number') {
+      throw new BadRequestException('Amount must be a number');
+    }
+
+    // Check for decimals
+    if (!Number.isInteger(amount)) {
+      throw new BadRequestException(
+        'Invalid amount: must be a whole number in kobo (no decimals)',
+      );
+    }
+
     if (amount <= 0)
       throw new BadRequestException(
         'Invalid amount: must be positive integer (kobo)',
@@ -239,6 +250,7 @@ export class WalletsService {
       // Get sender wallet ID
       const senderWalletSimple = await this.walletRepository.findOne({
         where: { user: { id: senderUser.id } },
+        select: ['id'],
       });
       if (!senderWalletSimple)
         throw new NotFoundException('Sender wallet not found');
@@ -246,6 +258,7 @@ export class WalletsService {
       // Get recipient wallet by wallet_number
       const recipientWalletSimple = await this.walletRepository.findOne({
         where: { wallet_number: recipientWalletNumber },
+        select: ['id'],
       });
       if (!recipientWalletSimple)
         throw new NotFoundException('Recipient wallet not found');
@@ -286,13 +299,14 @@ export class WalletsService {
       await queryRunner.manager.save([senderLocked, recipientLocked]);
 
       // Record Transactions
+      const referenceBase = `TRF-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
       // Sender Debit
       const debitTx = queryRunner.manager.create(Transaction, {
         wallet: senderLocked,
         amount: amount,
         type: TransactionType.TRANSFER,
         status: TransactionStatus.SUCCESS,
-        reference: `TRF-${Date.now()}--${crypto.randomBytes(4).toString('hex')}-DB`,
+        reference: `${referenceBase}-DB`,
         metadata: { type: 'debit', receiver_wallet: recipientLocked.id },
       });
 
@@ -302,7 +316,7 @@ export class WalletsService {
         amount: amount,
         type: TransactionType.TRANSFER,
         status: TransactionStatus.SUCCESS,
-        reference: `TRF-${Date.now()}--${crypto.randomBytes(4).toString('hex')}-CR`,
+        reference: `${referenceBase}-CR`,
         metadata: { type: 'credit', sender_wallet: senderLocked.id },
       });
 

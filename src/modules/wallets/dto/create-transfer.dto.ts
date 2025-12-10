@@ -1,8 +1,15 @@
-import { IsNotEmpty, IsNumber, IsString, Min } from 'class-validator';
+import {
+  IsInt,
+  IsNotEmpty,
+  IsNumber,
+  IsPositive,
+  IsString,
+  Min,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateTransferDto {
-  @ApiProperty({ description: 'The wallet ID of the recipient' })
+  @ApiProperty({ description: 'The wallet number of the recipient' })
   @IsString()
   @IsNotEmpty()
   wallet_number: string;
@@ -13,6 +20,11 @@ export class CreateTransferDto {
     example: 50000,
   })
   @IsNumber()
+  @IsInt({
+    message:
+      'Transfer amount must be a whole number (kobo). No decimals allowed.',
+  })
+  @IsPositive({ message: 'Transfer amount must be positive' })
   @Min(100, { message: 'Minimum transfer amount is 100 kobo (1 Naira)' })
   amount: number;
 }
