@@ -160,7 +160,7 @@ export class WalletsService {
         if (!walletLocked)
           throw new InternalServerErrorException('Wallet lock failed');
 
-        const currentBalance = parseInt(String(walletLocked.balance), 10) || 0;
+        const currentBalance = walletLocked.balance || 0;
         const newBalance = currentBalance + amountPaid;
 
         walletLocked.balance = newBalance;

@@ -15,7 +15,7 @@ export class Wallet {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'decimal', precision: 20, scale: 2, default: 0 })
+  @Column({ type: 'bigint', default: 0 })
   balance: number;
 
   @Column({ default: 'NGN' })

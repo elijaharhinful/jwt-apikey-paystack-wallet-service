@@ -25,7 +25,7 @@ export class Transaction {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'decimal', precision: 20, scale: 2, default: 0 })
+  @Column({ type: 'bigint', default: 0 })
   amount: number;
 
   @Column({ type: 'enum', enum: TransactionType })
