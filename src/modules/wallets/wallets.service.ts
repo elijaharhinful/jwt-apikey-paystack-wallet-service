@@ -20,7 +20,7 @@ import { PaystackWebhookEvent } from '../paystack/interfaces/paystack-webhook-ev
 import { WalletBalanceResponse } from './interfaces/wallet-balance-response.interface';
 import { DepositStatusResponse } from './interfaces/deposit-status-response.interface';
 import { TransactionHistoryResponse } from './interfaces/transaction-history-response.interface';
-
+import * as crypto from 'crypto';
 @Injectable()
 export class WalletsService {
   private readonly logger = new Logger(WalletsService.name);
@@ -60,7 +60,11 @@ export class WalletsService {
   }
 
   async deposit(user: User, amount: number) {
-    const reference = `REF-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    if (!Number.isInteger(amount)) {
+      throw new BadRequestException('Amount must be in kobo (integer)');
+    }
+
+    const reference = `REF-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
 
     // Check if reference already exists
     const existingTx = await this.transactionRepository.findOne({
@@ -122,6 +126,7 @@ export class WalletsService {
 
         if (!transaction) {
           this.logger.warn(`Transaction not found for ref ${reference}`);
+          await queryRunner.rollbackTransaction();
           return;
         }
 
@@ -155,10 +160,14 @@ export class WalletsService {
         if (!walletLocked)
           throw new InternalServerErrorException('Wallet lock failed');
 
-        walletLocked.balance = Number(walletLocked.balance) + amountPaid;
-        await queryRunner.manager.save(walletLocked);
+        const currentBalance = parseInt(String(walletLocked.balance), 10) || 0;
+        const newBalance = currentBalance + amountPaid;
 
+        walletLocked.balance = newBalance;
+
+        await queryRunner.manager.save(walletLocked);
         await queryRunner.commitTransaction();
+
         this.logger.log(`Wallet credited for ${reference}`);
       } catch (err: unknown) {
         await queryRunner.rollbackTransaction();
@@ -177,7 +186,10 @@ export class WalletsService {
   }
 
   async transfer(senderUser: User, recipientWalletId: string, amount: number) {
-    if (amount <= 0) throw new BadRequestException('Invalid amount');
+    if (amount <= 0)
+      throw new BadRequestException(
+        'Invalid amount: must be positive integer (kobo)',
+      );
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -232,7 +244,7 @@ export class WalletsService {
         amount: amount,
         type: TransactionType.TRANSFER,
         status: TransactionStatus.SUCCESS,
-        reference: `TRF-${Date.now()}-${senderLocked.id}-DEBIT`,
+        reference: `TRF-${Date.now()}--${crypto.randomBytes(4).toString('hex')}-DB`,
         metadata: { type: 'debit', receiver_wallet: recipientLocked.id },
       });
 
@@ -242,7 +254,7 @@ export class WalletsService {
         amount: amount,
         type: TransactionType.TRANSFER,
         status: TransactionStatus.SUCCESS,
-        reference: `TRF-${Date.now()}-${senderLocked.id}-CREDIT`,
+        reference: `TRF-${Date.now()}--${crypto.randomBytes(4).toString('hex')}-CR`,
         metadata: { type: 'credit', sender_wallet: senderLocked.id },
       });
 
