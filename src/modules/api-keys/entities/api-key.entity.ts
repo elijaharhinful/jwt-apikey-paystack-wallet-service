@@ -37,4 +37,10 @@ export class ApiKey {
 
   @Column()
   user_id: string;
+
+  @Column({ default: false })
+  is_revoked: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  revoked_at: Date;
 }

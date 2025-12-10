@@ -8,7 +8,6 @@ import {
 } from '@nestjs/swagger';
 import { CreateApiKeyDto } from '../dto/create-api-key.dto';
 import { RolloverApiKeyDto } from '../dto/rollover-api-key.dto';
-import { RevokeApiKeyDto } from '../dto/revoke-api-key.dto';
 
 export function ApiKeyDocs() {
   return applyDecorators(ApiTags('Api Keys'));
@@ -56,10 +55,23 @@ export function RevokeApiKeyDocs() {
   return applyDecorators(
     ApiOperation({ summary: 'Revoke an API Key' }),
     ApiBearerAuth('JWT'),
-    ApiBody({ type: RevokeApiKeyDto }),
     ApiResponse({
       status: 200,
-      description: 'API Key revoked',
+      description: 'API Key revoked successfully',
+      schema: {
+        type: 'object',
+        properties: {
+          message: { type: 'string', example: 'API key revoked successfully' },
+        },
+      },
+    }),
+    ApiResponse({
+      status: 404,
+      description: 'Key not found',
+    }),
+    ApiResponse({
+      status: 400,
+      description: 'Key is already revoked',
     }),
   );
 }

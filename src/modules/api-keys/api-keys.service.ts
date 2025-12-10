@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
@@ -24,7 +28,7 @@ export class ApiKeysService {
       where: { user: { id: user.id }, is_active: true },
     });
     if (count >= 5) {
-      throw new InternalServerErrorException(
+      throw new BadRequestException(
         'Maximum limit of 5 active API keys reached',
       );
     }
@@ -56,33 +60,48 @@ export class ApiKeysService {
     });
 
     if (!oldKey) {
-      throw new InternalServerErrorException('Key not found');
+      throw new NotFoundException('Key not found');
     }
 
     // Check if truly expired
     if (oldKey.expires_at > new Date()) {
-      throw new InternalServerErrorException('Key is not expired yet');
+      throw new BadRequestException('Key is not expired yet');
     }
 
     // Reuse permissions
-    return this.createApiKey(user, 'Rollover', oldKey.permissions, expiryStr);
+    return this.createApiKey(
+      user,
+      `${oldKey.preview_chars} (Rolled over)`,
+      oldKey.permissions,
+      expiryStr,
+    );
   }
 
   async revokeApiKey(user: User, keyId: string): Promise<void> {
     const key = await this.apiKeyRepository.findOne({
       where: { id: keyId, user: { id: user.id } },
     });
+
     if (!key) {
-      throw new InternalServerErrorException('Key not found');
+      throw new NotFoundException('Key not found');
     }
-    await this.apiKeyRepository.remove(key);
+
+    if (key.is_revoked) {
+      throw new BadRequestException('Key is already revoked');
+    }
+
+    key.is_revoked = true;
+    key.is_active = false;
+    key.revoked_at = new Date();
+
+    await this.apiKeyRepository.save(key);
   }
 
   async validateApiKey(key: string): Promise<User | null> {
     const hash = crypto.createHash('sha256').update(key).digest('hex');
 
     const apiKey = await this.apiKeyRepository.findOne({
-      where: { key_hash: hash, is_active: true },
+      where: { key_hash: hash, is_active: true, is_revoked: false },
       relations: ['user'],
     });
 
@@ -106,7 +125,10 @@ export class ApiKeysService {
   private calculateExpiry(expiryStr: string): Date {
     const now = new Date();
     const match = expiryStr.match(/^(\d+)([HDMY])$/);
-    if (!match) throw new Error('Invalid expiry format');
+    if (!match)
+      throw new BadRequestException(
+        'Invalid expiry format. Use format: 1H, 1D, 1M, or 1Y',
+      );
     const value = parseInt(match[1], 10);
     const unit = match[2];
 
