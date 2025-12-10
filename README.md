@@ -498,25 +498,6 @@ npm run migration:revert
 npm run lint
 ```
 
-### Formatting
-
-```bash
-npm run format
-```
-
-### Testing
-
-```bash
-# Unit tests
-npm run test
-
-# E2E tests
-npm run test:e2e
-
-# Test coverage
-npm run test:cov
-```
-
 ---
 
 ## 📁 Project Structure
@@ -624,56 +605,3 @@ npm run start:prod
 ## 📄 License
 
 This project is licensed under the **UNLICENSED** license.
-
----
-
-## 👨‍💻 Author
-
-**Elijah Arhinful**
-
-- GitHub: [@elijaharhinful](https://github.com/elijaharhinful)
-- Repository: [jwt-apikey-paystack-wallet-service](https://github.com/elijaharhinful/jwt-apikey-paystack-wallet-service)
-
----
-
-## 🤝 Contributing
-
-Contributions, issues, and feature requests are welcome!
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
----
-
-## 📞 Support
-
-If you encounter any issues or have questions:
-
-1. Check the [Troubleshooting](#-troubleshooting) section
-2. Review the [Swagger Documentation](http://localhost:3000/api/docs)
-3. Open an issue on [GitHub](https://github.com/elijaharhinful/jwt-apikey-paystack-wallet-service/issues)
-
----
-
-## ✅ Task Compliance
-
-This project fulfills all Stage 8 requirements:
-
-- ✅ Google sign-in with JWT generation
-- ✅ Wallet creation per user
-- ✅ Paystack deposits with webhook verification
-- ✅ Wallet balance and transaction history
-- ✅ Wallet-to-wallet transfers
-- ✅ API key system with permissions
-- ✅ Maximum 5 active API keys per user
-- ✅ API key expiration and rollover
-- ✅ Mandatory webhook handling
-- ✅ Idempotent transactions
-- ✅ Atomic transfers
-
----
-
-**Happy Coding! 🚀**
