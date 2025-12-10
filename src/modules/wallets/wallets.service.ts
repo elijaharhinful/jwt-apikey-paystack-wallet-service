@@ -186,7 +186,11 @@ export class WalletsService {
     return { status: true };
   }
 
-  async transfer(senderUser: User, recipientWalletId: string, amount: number) {
+  async transfer(
+    senderUser: User,
+    recipientWalletNumber: string,
+    amount: number,
+  ) {
     if (amount <= 0)
       throw new BadRequestException(
         'Invalid amount: must be positive integer (kobo)',
@@ -198,13 +202,22 @@ export class WalletsService {
 
     try {
       // Prepare IDs
-      // We need sender wallet ID first.
+      // Get sender wallet ID
       const senderWalletSimple = await this.walletRepository.findOne({
         where: { user: { id: senderUser.id } },
       });
       if (!senderWalletSimple)
         throw new NotFoundException('Sender wallet not found');
+
+      // Get recipient wallet by wallet_number
+      const recipientWalletSimple = await this.walletRepository.findOne({
+        where: { wallet_number: recipientWalletNumber },
+      });
+      if (!recipientWalletSimple)
+        throw new NotFoundException('Recipient wallet not found');
+
       const senderWalletId = senderWalletSimple.id;
+      const recipientWalletId = recipientWalletSimple.id;
 
       if (senderWalletId === recipientWalletId)
         throw new BadRequestException('Cannot transfer to self');
