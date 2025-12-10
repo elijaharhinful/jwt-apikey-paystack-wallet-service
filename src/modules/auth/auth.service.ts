@@ -1,47 +1,79 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { DataSource } from 'typeorm';
 import { UsersService } from '../users/users.service';
+import { WalletsService } from '../wallets/wallets.service';
 import { User } from '../users/entities/user.entity';
 import { Profile } from 'passport-google-oauth20';
-import { WalletsService } from '../wallets/wallets.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly usersService: UsersService,
-    private readonly jwtService: JwtService,
     private readonly walletsService: WalletsService,
+    private readonly jwtService: JwtService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async validateOAuthLogin(profile: Profile): Promise<User> {
-    try {
-      const { emails, id } = profile;
+    const { emails, id } = profile;
 
-      if (!emails || !emails.length) {
-        throw new InternalServerErrorException('Email not provided by Google');
-      }
+    if (!emails || !emails.length) {
+      throw new InternalServerErrorException('Email not provided by Google');
+    }
 
-      const email = emails[0].value;
+    const email = emails[0].value;
+    let user = await this.usersService.findByEmail(email);
 
-      let user = await this.usersService.findByEmail(email);
+    if (!user) {
+      // Create user and wallet atomically
+      const queryRunner = this.dataSource.createQueryRunner();
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
 
-      if (!user) {
-        // Create new user if not exists
-        user = await this.usersService.create({
+      try {
+        // Create user
+        const userEntity = queryRunner.manager.create(User, {
           email,
           google_id: id,
         });
-        // Create Wallet
-        await this.walletsService.create(user);
-      } else if (!user.google_id) {
-        // Link googleId if needed
-      }
+        user = await queryRunner.manager.save(userEntity);
 
-      return user;
-    } catch (error) {
-      console.error(error);
-      throw new InternalServerErrorException('Error validating OAuth login');
+        // Create wallet using existing service method
+        const walletNumber =
+          await this.walletsService.generateUniqueWalletNumber();
+        const wallet = queryRunner.manager.create(
+          this.walletsService.walletRepository.target,
+          {
+            user,
+            balance: 0,
+            wallet_number: walletNumber,
+          },
+        );
+        await queryRunner.manager.save(wallet);
+
+        await queryRunner.commitTransaction();
+      } catch (err: unknown) {
+        await queryRunner.rollbackTransaction();
+        if (err instanceof Error) {
+          throw new InternalServerErrorException(
+            `Failed to create user and wallet: ${err.message}`,
+          );
+        } else {
+          throw new InternalServerErrorException(
+            'Failed to create user and wallet',
+          );
+        }
+      } finally {
+        await queryRunner.release();
+      }
+    } else if (!user.google_id) {
+      // Link Google ID if user exists without it
+      user.google_id = id;
+      await this.usersService.update(user.id, { google_id: id });
     }
+
+    return user;
   }
 
   async generateJwt(user: User): Promise<string> {

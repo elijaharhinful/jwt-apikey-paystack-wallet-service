@@ -27,14 +27,14 @@ export class WalletsService {
 
   constructor(
     @InjectRepository(Wallet)
-    private readonly walletRepository: Repository<Wallet>,
+    public readonly walletRepository: Repository<Wallet>,
     @InjectRepository(Transaction)
     private readonly transactionRepository: Repository<Transaction>,
     private readonly paystackService: PaystackService,
     private readonly dataSource: DataSource,
   ) {}
 
-  private async generateUniqueWalletNumber(): Promise<string> {
+  public async generateUniqueWalletNumber(): Promise<string> {
     let walletNumber: string;
     let existing;
 
@@ -50,7 +50,7 @@ export class WalletsService {
     return walletNumber;
   }
 
-  async create(user: User): Promise<Wallet> {
+  public async create(user: User): Promise<Wallet> {
     const wallet = this.walletRepository.create({
       user,
       balance: 0,

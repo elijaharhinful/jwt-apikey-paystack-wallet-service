@@ -8,6 +8,8 @@ import { UsersModule } from '../users/users.module';
 import { WalletsModule } from '../wallets/wallets.module';
 import { GoogleStrategy } from './google.strategy';
 import { JwtStrategy } from './jwt.strategy';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Wallet } from '../wallets/entities/wallet.entity';
 
 @Module({
   imports: [
@@ -24,6 +26,7 @@ import { JwtStrategy } from './jwt.strategy';
         },
       }),
     }),
+    TypeOrmModule.forFeature([Wallet]),
   ],
   controllers: [AuthController],
   providers: [AuthService, GoogleStrategy, JwtStrategy],

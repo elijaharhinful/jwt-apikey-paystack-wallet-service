@@ -49,6 +49,9 @@ class EnvironmentVariables {
   JWT_SECRET: string;
 
   @IsString()
+  JWT_EXPIRY: string;
+
+  @IsString()
   @IsOptional() // Might be optional if Google Auth is not strictly required for app startup
   GOOGLE_CLIENT_ID: string;
 
