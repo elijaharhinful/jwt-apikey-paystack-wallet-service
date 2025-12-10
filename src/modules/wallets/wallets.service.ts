@@ -4,6 +4,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
   Logger,
+  ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
@@ -33,16 +34,41 @@ export class WalletsService {
     private readonly dataSource: DataSource,
   ) {}
 
+  private async generateUniqueWalletNumber(): Promise<string> {
+    let walletNumber: string;
+    let existing;
+
+    do {
+      walletNumber = Math.floor(
+        1000000000000 + Math.random() * 9000000000000,
+      ).toString();
+      existing = await this.walletRepository.findOne({
+        where: { wallet_number: walletNumber },
+      });
+    } while (existing);
+
+    return walletNumber;
+  }
+
   async create(user: User): Promise<Wallet> {
     const wallet = this.walletRepository.create({
       user,
       balance: 0,
+      wallet_number: await this.generateUniqueWalletNumber(),
     });
     return this.walletRepository.save(wallet);
   }
 
   async deposit(user: User, amount: number) {
     const reference = `REF-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+    // Check if reference already exists
+    const existingTx = await this.transactionRepository.findOne({
+      where: { reference },
+    });
+    if (existingTx) {
+      throw new ConflictException('Transaction reference already exists');
+    }
 
     // Create PENDING transaction
     // Need wallet first
@@ -109,20 +135,20 @@ export class WalletsService {
         const amountPaid = data.amount / 100;
         if (amountPaid !== transaction.amount) {
           this.logger.error(
-            `Amount mismatch: expected ${transaction.amount}, got ${amountPaid}`,
+            `Amount mismatch: expected ${transaction.amount}, got ${amountPaid}. Marking as failed.`,
           );
-
-          transaction.amount = amountPaid;
+          transaction.status = TransactionStatus.FAILED;
+          await queryRunner.manager.save(transaction);
+          await queryRunner.commitTransaction();
+          return { status: false };
         }
 
         transaction.status = TransactionStatus.SUCCESS;
         await queryRunner.manager.save(transaction);
 
         // Credit Wallet
-        const wallet = transaction.wallet;
-        wallet.balance = Number(wallet.balance) + amountPaid;
         const walletLocked = await queryRunner.manager.findOne(Wallet, {
-          where: { id: wallet.id },
+          where: { id: transaction.wallet.id },
           lock: { mode: 'pessimistic_write' },
         });
 
@@ -193,20 +219,20 @@ export class WalletsService {
         throw new BadRequestException('Insufficient balance');
       }
 
-      // 3. Perform Transfer
+      // Perform Transfer
       senderLocked.balance = Number(senderLocked.balance) - amount;
       recipientLocked.balance = Number(recipientLocked.balance) + amount;
 
       await queryRunner.manager.save([senderLocked, recipientLocked]);
 
-      // 4. Record Transactions
+      // Record Transactions
       // Sender Debit
       const debitTx = queryRunner.manager.create(Transaction, {
         wallet: senderLocked,
         amount: amount,
         type: TransactionType.TRANSFER,
         status: TransactionStatus.SUCCESS,
-        reference: `TRF-${Date.now()}-${senderLocked.id}`,
+        reference: `TRF-${Date.now()}-${senderLocked.id}-DEBIT`,
         metadata: { type: 'debit', receiver_wallet: recipientLocked.id },
       });
 
@@ -214,7 +240,7 @@ export class WalletsService {
       const creditTx = queryRunner.manager.create(Transaction, {
         wallet: recipientLocked,
         amount: amount,
-        type: TransactionType.TRANSFER, // or DEPOSIT? No, TRANSFER.
+        type: TransactionType.TRANSFER,
         status: TransactionStatus.SUCCESS,
         reference: `TRF-${Date.now()}-${senderLocked.id}-CREDIT`,
         metadata: { type: 'credit', sender_wallet: senderLocked.id },
