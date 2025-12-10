@@ -24,6 +24,7 @@ import * as crypto from 'crypto';
 @Injectable()
 export class WalletsService {
   private readonly logger = new Logger(WalletsService.name);
+  private readonly MIN_DEPOSIT_AMOUNT = 10000;
 
   constructor(
     @InjectRepository(Wallet)
@@ -60,8 +61,28 @@ export class WalletsService {
   }
 
   async deposit(user: User, amount: number) {
+    // Check if it is a number
+    if (typeof amount !== 'number') {
+      throw new BadRequestException('Amount must be a number');
+    }
+
+    // Check if it is an integer (kobo cannot have decimals)
     if (!Number.isInteger(amount)) {
-      throw new BadRequestException('Amount must be in kobo (integer)');
+      throw new BadRequestException(
+        'Amount must be in kobo (integer, no decimals)',
+      );
+    }
+
+    // Check for negative or zero values
+    if (amount <= 0) {
+      throw new BadRequestException('Amount must be greater than zero');
+    }
+
+    // Check for minimum deposit (Optional but recommended for payment gateways)
+    if (amount < this.MIN_DEPOSIT_AMOUNT) {
+      throw new BadRequestException(
+        `Minimum deposit amount is ${this.MIN_DEPOSIT_AMOUNT} kobo`,
+      );
     }
 
     const reference = `REF-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
@@ -91,13 +112,26 @@ export class WalletsService {
     await this.transactionRepository.save(transaction);
 
     // Call Paystack
-    const paystackData = await this.paystackService.initializeTransaction(
-      user.email,
-      amount,
-      reference,
-    );
+    // If Paystack fails, we should probably catch it to update the transaction status
+    try {
+      const paystackData = await this.paystackService.initializeTransaction(
+        user.email,
+        amount,
+        reference,
+      );
+      return paystackData;
+    } catch (err: unknown) {
+      // If Paystack init fails, mark local transaction as FAILED so it doesn't stay PENDING forever
+      transaction.status = TransactionStatus.FAILED;
+      await this.transactionRepository.save(transaction);
 
-    return paystackData;
+      if (err instanceof Error) {
+        this.logger.error(`Paystack Init Failed: ${err.message}`);
+      } else {
+        this.logger.error(`Paystack Init Failed: Unknown error`);
+      }
+      throw new InternalServerErrorException('Payment initialization failed');
+    }
   }
 
   async handleWebhook(body: PaystackWebhookEvent, signature: string) {
