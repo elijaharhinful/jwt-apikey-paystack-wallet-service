@@ -13,7 +13,7 @@ export class ApiKey {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ default: 'Unnamed Key' })
   name: string;
 
   @Column()
