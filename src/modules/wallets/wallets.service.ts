@@ -138,7 +138,8 @@ export class WalletsService {
         // Verify amount matches
         // Both data.amount and transaction.amount are in kobo
         const amountPaid = data.amount;
-        if (amountPaid !== transaction.amount) {
+        const transactionAmount = Number(transaction.amount);
+        if (amountPaid !== transactionAmount) {
           this.logger.error(
             `Amount mismatch: expected ${transaction.amount} kobo, got ${amountPaid} kobo. Marking as failed.`,
           );
