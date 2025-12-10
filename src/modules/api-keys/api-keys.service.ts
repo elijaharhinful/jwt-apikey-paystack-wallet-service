@@ -2,9 +2,10 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, MoreThan } from 'typeorm';
 import * as crypto from 'crypto';
 import { ApiKey } from './entities/api-key.entity';
 import { User } from '../users/entities/user.entity';
@@ -25,11 +26,31 @@ export class ApiKeysService {
   ): Promise<ApiKeyResponse> {
     // Limit check: 5 active keys
     const count = await this.apiKeyRepository.count({
-      where: { user: { id: user.id }, is_active: true },
+      where: {
+        user: { id: user.id },
+        is_active: true,
+        expires_at: MoreThan(new Date()),
+      },
     });
+
     if (count >= 5) {
       throw new BadRequestException(
         'Maximum limit of 5 active API keys reached',
+      );
+    }
+
+    const existingName = await this.apiKeyRepository.findOne({
+      where: {
+        user: { id: user.id },
+        name: name,
+        is_active: true,
+        expires_at: MoreThan(new Date()), // Only check against valid keys
+      },
+    });
+
+    if (existingName) {
+      throw new ConflictException(
+        `You already have an active key named '${name}'`,
       );
     }
 
@@ -38,6 +59,7 @@ export class ApiKeysService {
 
     const apiKey = this.apiKeyRepository.create({
       user,
+      name,
       key_hash: hash,
       preview_chars:
         key.substring(0, 7) + '...' + key.substring(key.length - 4),
@@ -68,13 +90,25 @@ export class ApiKeysService {
       throw new BadRequestException('Key is not expired yet');
     }
 
-    // Reuse permissions
-    return this.createApiKey(
+    // Prevent double rollovers
+    if (oldKey.is_revoked) {
+      throw new BadRequestException('Cannot rollover a revoked key');
+    }
+
+    // Create the new key
+    const newKey = await this.createApiKey(
       user,
-      `${oldKey.preview_chars} (Rolled over)`,
+      oldKey.name, // Keep the same name
       oldKey.permissions,
       expiryStr,
     );
+
+    // Revoke the old key so it can't be rolled over again
+    oldKey.is_revoked = true;
+    oldKey.is_active = false;
+    await this.apiKeyRepository.save(oldKey);
+
+    return newKey;
   }
 
   async revokeApiKey(user: User, keyId: string): Promise<void> {

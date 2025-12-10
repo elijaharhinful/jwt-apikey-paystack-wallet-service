@@ -14,6 +14,9 @@ export class ApiKey {
   id: string;
 
   @Column()
+  name: string;
+
+  @Column()
   key_hash: string;
 
   @Column()
