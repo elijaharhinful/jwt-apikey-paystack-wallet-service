@@ -93,6 +93,40 @@ To receive Webhooks from Paystack functionality locally (e.g., verifying deposit
 - `GET /wallet/transactions` (Auth: JWT/API Key + 'read')
 
 ## Testing
-- Use Postman or curl.
-- For API Keys, set `x-api-key` header.
-- For JWT, set `Authorization: Bearer <token>`.
+
+### Swagger UI
+Access the interactive API documentation at: `http://localhost:3000/api/docs`
+
+**Authentication Options:**
+- **JWT**: Click "Authorize" → "JWT" → Enter `Bearer <your_token>`
+- **API Key**: Click "Authorize" → "API-Key" → Enter your API key
+
+### Google Authentication (OAuth2)
+
+**⚠️ Important**: Google OAuth cannot be tested directly in Swagger UI due to redirect flow.
+
+**How to Test:**
+1. Copy the URL: `http://localhost:3000/auth/google`
+2. Paste it in a new browser tab
+3. Sign in with your Google account
+4. After successful login, you'll see a JSON response with your JWT token
+5. Copy the JWT token
+6. In Swagger UI, click "Authorize" → "JWT" → Paste token as `Bearer <token>`
+7. Now you can test authenticated endpoints!
+
+**Detailed instructions are available in the Swagger UI** - expand the `/auth/google` endpoint.
+
+### API Testing Tools
+- **Postman**: For API Keys, set `x-api-key` header
+- **cURL**: For JWT, set `Authorization: Bearer <token>`
+
+## Currency Information
+
+**All amounts are in KOBO** (Nigerian Naira minor unit)
+- 100 kobo = 1 Naira (₦)
+- Minimum deposit: 10,000 kobo (₦100)
+- Minimum transfer: 100 kobo (₦1)
+
+**Example:**
+- To deposit ₦5,000, send: `{ "amount": 500000 }`
+- Balance of 1,500,000 kobo = ₦15,000
