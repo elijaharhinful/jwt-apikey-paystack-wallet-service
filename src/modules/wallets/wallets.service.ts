@@ -130,12 +130,12 @@ export class WalletsService {
           return;
         }
 
-        // Verify amount matches?
-        // data.amount is in pesewas. transaction.amount is in Cedis (major).
-        const amountPaid = data.amount / 100;
+        // Verify amount matches
+        // Both data.amount and transaction.amount are in kobo
+        const amountPaid = data.amount;
         if (amountPaid !== transaction.amount) {
           this.logger.error(
-            `Amount mismatch: expected ${transaction.amount}, got ${amountPaid}. Marking as failed.`,
+            `Amount mismatch: expected ${transaction.amount} kobo, got ${amountPaid} kobo. Marking as failed.`,
           );
           transaction.status = TransactionStatus.FAILED;
           await queryRunner.manager.save(transaction);

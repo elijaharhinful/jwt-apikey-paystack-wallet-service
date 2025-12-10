@@ -51,8 +51,8 @@ export function BalanceDocs() {
     ApiOperation({ summary: 'Get wallet balance' }),
     ApiResponse({
       status: 200,
-      description: 'Current balance',
-      schema: { example: { balance: 15000 } },
+      description: 'Current balance in kobo',
+      schema: { example: { balance: 1500000 } },
     }),
   );
 }
@@ -67,7 +67,7 @@ export function TransactionsDocs() {
         example: [
           {
             id: 'uuid',
-            amount: 5000,
+            amount: 500000,
             type: 'deposit',
             status: 'success',
             created_at: 'date',
@@ -86,7 +86,7 @@ export function DepositStatusDocs() {
       status: 200,
       description: 'Transaction status',
       schema: {
-        example: { reference: 'ref...', status: 'success', amount: 5000 },
+        example: { reference: 'ref...', status: 'success', amount: 500000 },
       },
     }),
   );

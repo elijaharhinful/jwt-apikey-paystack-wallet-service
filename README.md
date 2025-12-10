@@ -81,14 +81,14 @@ To receive Webhooks from Paystack functionality locally (e.g., verifying deposit
 
 ### Wallet
 - `POST /wallet/deposit` (Auth: JWT/API Key + 'deposit')
-  - Body: `{ "amount": 5000 }`
+  - Body: `{ "amount": 500000 }` (amount in kobo, 100 kobo = 1 Naira)
   - Returns Paystack auth URL.
 - `GET /wallet/deposit/:reference/status`
   - Check transaction status.
 - `POST /wallet/paystack/webhook`
   - Paystack webhook handler.
 - `POST /wallet/transfer` (Auth: JWT/API Key + 'transfer')
-  - Body: `{ "wallet_number": "recipient_wallet_id", "amount": 1000 }`
+  - Body: `{ "wallet_number": "recipient_wallet_id", "amount": 100000 }` (amount in kobo)
 - `GET /wallet/balance` (Auth: JWT/API Key + 'read')
 - `GET /wallet/transactions` (Auth: JWT/API Key + 'read')
 

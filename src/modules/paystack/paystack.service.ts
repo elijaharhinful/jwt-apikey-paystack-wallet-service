@@ -36,7 +36,7 @@ export class PaystackService {
         'https://api.paystack.co/transaction/initialize',
         {
           email,
-          amount: amount * 100, // Convert to pesewas
+          amount, // Amount is already in kobo
           reference,
           callback_url: this.configService.get<string>('paystack.callbackUrl'), // Optional
         },
