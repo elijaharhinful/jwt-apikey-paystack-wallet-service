@@ -91,12 +91,19 @@ After successful Google sign-in, your browser will show a JSON response:
   "user": {
     "id": "550e8400-e29b-41d4-a716-446655440000",
     "email": "your-email@gmail.com",
-    "name": "Your Name",
-    "picture": "https://lh3.googleusercontent.com/..."
+    "google_id": "109011518663757710676",
+    "wallet": {
+      "balance": 10930000,
+      "currency": "kobo",
+      "wallet_number": "3511720321883"
+    }
   },
   "jwt": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1NTBlODQwMC1lMjliLTQxZDQtYTcxNi00NDY2NTU0NDAwMDAiLCJlbWFpbCI6InlvdXItZW1haWxAZ21haWwuY29tIiwiaWF0IjoxNzMzODIxMjAwLCJleHAiOjE3MzM5MDc2MDB9.signature"
 }
 \`\`\`
+
+**Note**: The wallet balance is in kobo (100 kobo = ₦1).
+
 
 **Next Steps:**
 
@@ -119,8 +126,16 @@ Do not attempt to call it directly via Swagger's "Try it out" button.
           user: {
             id: '550e8400-e29b-41d4-a716-446655440000',
             email: 'user@gmail.com',
-            name: 'John Doe',
-            picture: 'https://lh3.googleusercontent.com/a/default-user',
+            google_id: '109011518663757710676',
+            created_at: '2025-12-10T09:26:40.633Z',
+            wallet: {
+              id: '4675bd2c-e625-44e2-963b-aa155387b20d',
+              balance: 10930000,
+              currency: 'kobo',
+              created_at: '2025-12-10T09:26:40.633Z',
+              user_id: '550e8400-e29b-41d4-a716-446655440000',
+              wallet_number: '3511720321883',
+            },
           },
           jwt: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1NTBlODQwMC1lMjliLTQxZDQtYTcxNi00NDY2NTU0NDAwMDAiLCJlbWFpbCI6InVzZXJAZ21haWwuY29tIiwiaWF0IjoxNzMzODIxMjAwLCJleHAiOjE3MzM5MDc2MDB9.signature',
         },

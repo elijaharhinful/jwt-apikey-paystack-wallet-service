@@ -25,7 +25,7 @@ export class Wallet {
   })
   balance: number;
 
-  @Column({ default: 'NGN' })
+  @Column({ default: 'kobo' })
   currency: string;
 
   @CreateDateColumn()

@@ -227,11 +227,19 @@ http://localhost:3000/api/docs
      "user": {
        "id": "uuid",
        "email": "your-email@gmail.com",
-       "name": "Your Name"
+       "google_id": "109011518663757710676",
+       "wallet": {
+         "balance": 10930000,
+         "currency": "kobo",
+         "wallet_number": "3511720321883"
+       }
      },
      "jwt": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
    }
    ```
+   
+   > **Note**: The wallet balance is in kobo (100 kobo = ₦1). 
+
 
 4. Copy the `jwt` token
 
@@ -413,6 +421,11 @@ Response:
 - **100 kobo = ₦1 (1 Naira)**
 - Minimum deposit: **10,000 kobo** (₦100)
 - Minimum transfer: **100 kobo** (₦1)
+
+### Currency Field
+
+- The `balance` value is in kobo, not Naira
+- Example: `{ "balance": 10930000, "currency": "kobo" }` means **₦109,300** (not ₦10,930,000)
 
 ### Examples:
 - To deposit **₦5,000**: `{ "amount": 500000 }`
